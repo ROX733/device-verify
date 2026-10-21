@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<title>Device Verification</title>
+<style>
+*{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,sans-serif}
+body{margin:0;min-height:100vh;background:#060a14;color:#e6eaf2;display:flex;align-items:center;justify-content:center;padding:18px}
+.card{width:100%;max-width:420px;background:linear-gradient(180deg,#121a2e 0%,#0d1428 100%);border:1px solid #1e2d55;border-radius:24px;padding:22px;box-shadow:0 20px 60px rgba(0,0,0,.5),0 0 0 1px rgba(255,255,255,.04) inset}
+.badge{display:inline-flex;align-items:center;gap:8px;background:#0a1a2e;border:1px solid #1e3a5f;color:#5eb8ff;font-size:12px;padding:6px 12px;border-radius:999px;font-weight:600}
+.logo{width:64px;height:64px;margin:18px auto 10px;background:radial-gradient(60% 60% at 50% 30%,#1e3a8a 0%,#0f1f4d 100%);border:1px solid #2a4a9a;border-radius:18px;display:grid;place-items:center;font-size:30px;box-shadow:0 8px 30px rgba(37,99,235,.4)}
+h1{margin:6px 0 6px;text-align:center;font-size:22px;letter-spacing:-.5px}
+.sub{color:#8b95b5;text-align:center;font-size:13.5px;line-height:1.5;margin-bottom:16px}
+.info{background:#0a1226;border:1px solid #1e2d55;border-radius:14px;padding:12px 14px;margin:14px 0;display:grid;gap:8px}
+.row{display:flex;justify-content:space-between;align-items:center;font-size:13px}
+.k{color:#6b7aa3}.v{color:#d7e1ff;font-family:monospace;font-size:12px}
+.progress{height:3px;background:#0a1226;border-radius:999px;overflow:hidden;margin:14px 0 16px}
+.bar{height:100%;width:0%;background:linear-gradient(90deg,#2dd4bf,#3b82f6);transition:width .6s}
+.btn{width:100%;background:linear-gradient(180deg,#2dd4bf,#0ea5a5);color:#021018;border:0;padding:14px;border-radius:14px;font-weight:800;font-size:15px;cursor:pointer;box-shadow:0 8px 20px rgba(14,165,165,.35)}
+.btn:disabled{opacity:.6;cursor:not-allowed}
+.btn:active{transform:scale(.99)}
+.hash{word-break:break-all;background:#070c1c;border:1px dashed #233055;padding:8px 10px;border-radius:10px;font-family:monospace;font-size:11px;color:#7fb0ff;text-align:center;margin-top:12px}
+.foot{margin-top:14px;text-align:center;font-size:11px;color:#5a678a}
+.ok{display:none;text-align:center;padding:10px}
+.ok .tick{width:64px;height:64px;border-radius:50%;background:#0ea5a5;display:grid;place-items:center;margin:10px auto;font-size:32px;color:white}
+</style>
+</head>
+<body>
+<div class="card" id="card">
+  <div style="text-align:center"><span class="badge">🔒 Secure Verification</span></div>
+  <div class="logo">🛡️</div>
+  <h1>Verify Your Device</h1>
+  <p class="sub">Complete 1-tap verification to start using <b id="botName">@YourBot</b><br>We fingerprint your device to prevent abuse.</p>
+
+  <div class="info" id="deviceBox">
+    <div class="row"><span class="k">Device</span><span class="v" id="dDevice">Scanning...</span></div>
+    <div class="row"><span class="k">Browser</span><span class="v" id="dBrowser">...</span></div>
+    <div class="row"><span class="k">Screen</span><span class="v" id="dScreen">...</span></div>
+    <div class="row"><span class="k">Timezone</span><span class="v" id="dTz">...</span></div>
+  </div>
+
+  <div class="progress"><div class="bar" id="bar"></div></div>
+
+  <button class="btn" id="btn" disabled>⏳ Scanning Device...</button>
+  <div class="hash" id="hashBox">hash: <span id="hash">-</span></div>
+
+  <div class="ok" id="ok">
+    <div class="tick">✓</div>
+    <h3 style="margin:8px 0 4px">Verified Successfully!</h3>
+    <p style="color:#8b95b5;font-size:13px;margin:0">You can return to Telegram</p>
+  </div>
+
+  <div class="foot">Protected by Device Verification • <span id="footBot">@YourBot</span></div>
+</div>
+
+<script>
+Telegram.WebApp.ready(); Telegram.WebApp.expand();
+const q = new URLSearchParams(location.search);
+const bot_hash = q.get('bot_hash') || q.get('botHash') || q.get('hash') || '';
+const bot = q.get('bot') || '';
+const webhook = q.get('webhook') || q.get('webhook_url') || '';
+
+document.getElementById('botName').textContent = bot || '@YourBot';
+document.getElementById('footBot').textContent = bot || '@YourBot';
+document.getElementById('hash').textContent = bot_hash ? bot_hash.slice(0,12)+'...'+bot_hash.slice(-6) : 'missing';
+document.getElementById('hashBox').title = bot_hash;
+
+function collect(){
+  const ua = navigator.userAgent;
+  let browser = 'Unknown';
+  if(ua.includes('Chrome')) browser='Chrome'; else if(ua.includes('Firefox')) browser='Firefox';
+  else if(ua.includes('Safari')) browser='Safari'; else if(ua.includes('Telegram')) browser='Telegram';
+  return {
+    userAgent: ua,
+    platform: navigator.platform || 'unknown',
+    language: navigator.language,
+    languages: (navigator.languages||[]).join(','),
+    screen: screen.width+'x'+screen.height+'@'+window.devicePixelRatio,
+    viewport: innerWidth+'x'+innerHeight,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    tzOffset: new Date().getTimezoneOffset(),
+    cores: navigator.hardwareConcurrency || 0,
+    memory: navigator.deviceMemory || 0,
+    touch: 'ontouchstart' in window
+  };
+}
+const d = collect();
+document.getElementById('dDevice').textContent = d.platform + ' • ' + d.language.toUpperCase();
+document.getElementById('dBrowser').textContent = d.viewport + ' • ' + (d.touch?'Touch':'Mouse');
+document.getElementById('dScreen').textContent = d.screen;
+document.getElementById('dTz').textContent = d.timezone;
+
+// fake scanning animation
+let p=0; const bar=document.getElementById('bar'), btn=document.getElementById('btn');
+const t = setInterval(()=>{ p+= Math.random()*22+8; if(p>=100){p=100;clearInterval(t); bar.style.width='100%'; btn.disabled=false; btn.textContent='🔐 Start Verification';} else bar.style.width=p+'%'; }, 280);
+
+btn.onclick = async ()=>{
+  if(!bot_hash || !webhook){ alert('Invalid link. Open from bot button.'); return; }
+  btn.disabled=true; btn.textContent='⏳ Verifying...'; bar.style.width='100%';
+  try{
+    const res = await fetch(decodeURIComponent(webhook), {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ bot_hash: bot_hash, bot: bot, device: d, ts: Date.now() })
+    });
+    const j = await res.json().catch(()=>({}));
+    // success if http 200
+    if(res.ok){
+      document.getElementById('deviceBox').style.display='none';
+      btn.style.display='none';
+      document.getElementById('ok').style.display='block';
+      document.getElementById('hashBox').style.display='none';
+      bar.style.background='linear-gradient(90deg,#10b981,#059669)';
+      setTimeout(()=>{
+        try{ Telegram.WebApp.close(); }catch(e){}
+        // fallback close
+        setTimeout(()=>{ location.href='https://t.me/'+ (bot? bot.replace('@','') : '') }, 900);
+      }, 1200);
+    } else {
+      throw new Error(j.message || 'Failed');
+    }
+  }catch(e){
+    btn.disabled=false; btn.textContent='🔐 Retry Verification';
+    alert('Verification failed: '+(e.message||e)+'\nTry again.');
+  }
+};
+if(!bot_hash) { btn.textContent='❌ Invalid Link'; btn.disabled=true; }
+if(!webhook) { document.getElementById('hashBox').innerHTML += '<br><span style="color:#ff6b6b">webhook missing - add &webhook= param</span>'; }
+</script>
+</body>
+</html>
